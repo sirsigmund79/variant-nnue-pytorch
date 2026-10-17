@@ -37,6 +37,7 @@ def main():
   parser.add_argument("--resume-from-model", dest='resume_from_model', help="Initializes training using the weights from the given .pt model")
   parser.add_argument("--epoch-size", type=int, default=20000000, dest='epoch_size', help="Number of positions per epoch.")
   parser.add_argument("--validation-size", type=int, default=1000000, dest='validation_size', help="Number of positions per validation step.")
+  parser.add_argument("--last-checkpoint-only", action='store_true', dest='last_checkpoint_only', help="Keep only last.ckpt instead of a checkpoint per epoch.")
   features.add_argparse_args(parser)
   args = parser.parse_args()
 
@@ -84,7 +85,9 @@ def main():
   print('Using log dir {}'.format(logdir), flush=True)
 
   tb_logger = pl_loggers.TensorBoardLogger(logdir)
-  checkpoint_callback = pl.callbacks.ModelCheckpoint(save_last=True, every_n_epochs=1, save_top_k=-1)
+  # --last-checkpoint-only keeps just last.ckpt (each checkpoint holds optimizer state too, so
+  # keeping one per epoch fills a Colab/Drive disk quickly)
+  checkpoint_callback = pl.callbacks.ModelCheckpoint(save_last=True, every_n_epochs=1, save_top_k=0 if args.last_checkpoint_only else -1)
   trainer = pl.Trainer.from_argparse_args(args, callbacks=[checkpoint_callback], logger=tb_logger)
 
   main_device = trainer.strategy.root_device if trainer.strategy.root_device.index is None else 'cuda:' + str(trainer.strategy.root_device.index)
